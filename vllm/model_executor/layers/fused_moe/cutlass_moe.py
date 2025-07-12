@@ -16,6 +16,7 @@ from vllm.model_executor.layers.fused_moe.topk_weight_and_reduce import (
 from vllm.model_executor.layers.fused_moe.utils import (_fp8_perm,
                                                         _fp8_quantize,
                                                         _resize_cache)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.scalar_type import scalar_types
 
 logger = init_logger(__name__)
@@ -606,6 +607,7 @@ def run_cutlass_block_scaled_fused_experts(
     w2_scale: torch.Tensor,
     topk_weights: torch.Tensor,
     topk_ids: torch.Tensor,
+    quant_fp8: Optional[QuantFP8] = None,
 ) -> torch.Tensor:
     w1_q = w1.transpose(1, 2)
     w2_q = w2.transpose(1, 2)
@@ -647,7 +649,8 @@ def run_cutlass_block_scaled_fused_experts(
     a_q, a1_scale = _fp8_quantize(a,
                                   A_scale=None,
                                   per_act_token=False,
-                                  block_shape=[128, 128])
+                                  block_shape=[128, 128],
+                                  quant_fp8=quant_fp8)
     device = a_q.device
 
     a_map = torch.empty((topk_ids.numel()), dtype=torch.int32, device=device)
@@ -687,7 +690,8 @@ def run_cutlass_block_scaled_fused_experts(
     intermediate_q, a2_scale = _fp8_quantize(intermediate,
                                              A_scale=None,
                                              per_act_token=False,
-                                             block_shape=[128, 128])
+                                             block_shape=[128, 128],
+                                             quant_fp8=quant_fp8)
 
     ops.cutlass_blockwise_scaled_grouped_mm(
         c2,
