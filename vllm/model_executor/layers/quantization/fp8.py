@@ -35,6 +35,8 @@ from vllm.model_executor.layers.quantization.utils.w8a8_utils import (
     cutlass_fp8_supported, maybe_create_device_identity,
     normalize_e4m3fn_to_e4m3fnuz, per_tensor_dequantize,
     requantize_with_max_scale)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import (
+    QuantFP8)
 from vllm.model_executor.parameter import (BlockQuantScaleParameter,
                                            ModelWeightParameter,
                                            PerTensorScaleParameter)
@@ -904,6 +906,7 @@ class Fp8MoEMethod(FusedMoEMethodBase):
         expert_load_view: Optional[torch.Tensor] = None,
         logical_to_physical_map: Optional[torch.Tensor] = None,
         logical_replica_count: Optional[torch.Tensor] = None,
+        quant_fp8: Optional[QuantFP8] = None
     ) -> torch.Tensor:
         if enable_eplb:
             assert expert_load_view is not None
@@ -966,6 +969,26 @@ class Fp8MoEMethod(FusedMoEMethodBase):
                 apply_router_weight_on_input=apply_router_weight_on_input,
                 global_num_experts=global_num_experts,
                 expert_map=expert_map)
+        elif quant_fp8 is not None:
+            return self.fused_experts(
+                hidden_states=x,
+                w1=layer.w13_weight,
+                w2=layer.w2_weight,
+                topk_weights=topk_weights,
+                topk_ids=topk_ids,
+                inplace=True,
+                activation=activation,
+                global_num_experts=global_num_experts,
+                apply_router_weight_on_input=apply_router_weight_on_input,
+                expert_map=expert_map,
+                w1_scale=(layer.w13_weight_scale_inv
+                            if self.block_quant else layer.w13_weight_scale),
+                w2_scale=(layer.w2_weight_scale_inv
+                            if self.block_quant else layer.w2_weight_scale),
+                a1_scale=layer.w13_input_scale,
+                a2_scale=layer.w2_input_scale,
+                quant_fp8=quant_fp8
+            )
         else:
             return self.fused_experts(
                 hidden_states=x,
@@ -979,11 +1002,11 @@ class Fp8MoEMethod(FusedMoEMethodBase):
                 apply_router_weight_on_input=apply_router_weight_on_input,
                 expert_map=expert_map,
                 w1_scale=(layer.w13_weight_scale_inv
-                          if self.block_quant else layer.w13_weight_scale),
+                            if self.block_quant else layer.w13_weight_scale),
                 w2_scale=(layer.w2_weight_scale_inv
-                          if self.block_quant else layer.w2_weight_scale),
+                            if self.block_quant else layer.w2_weight_scale),
                 a1_scale=layer.w13_input_scale,
-                a2_scale=layer.w2_input_scale,
+                a2_scale=layer.w2_input_scale
             )
 
 

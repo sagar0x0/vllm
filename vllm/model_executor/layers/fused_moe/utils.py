@@ -12,6 +12,8 @@ from vllm.model_executor.layers.quantization.utils.int8_utils import (
     per_token_group_quant_int8, per_token_quant_int8)
 from vllm.model_executor.layers.quantization.utils.mxfp4_utils import (
     quant_dequant_mxfp4)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import (
+    QuantFP8)
 from vllm.platforms import current_platform
 from vllm.triton_utils import tl, triton
 from vllm.utils import cdiv
@@ -105,16 +107,22 @@ def _fp8_quantize(
     A_scale: Optional[torch.Tensor],
     per_act_token: bool,
     block_shape: Optional[list[int]] = None,
+    quant_fp8: Optional[QuantFP8] = None
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Perform fp8 quantization on the inputs.  If a block_shape
     is provided, the output will be blocked.
     """
     if block_shape is None:
-        # TODO(luka): use QuantFP8 custom op
-        #  https://github.com/vllm-project/vllm/issues/20711
-        A, A_scale = ops.scaled_fp8_quant(
-            A, A_scale, use_per_token_if_dynamic=per_act_token)
+        # QuantFP8 custom op
+        if quant_fp8 is not None:
+            if A.is_cuda:
+                A, A_scale = quant_fp8.forward_cuda(A, A_scale)
+            else:
+                A, A_scale = quant_fp8.forward_native(A, A_scale)
+        else:
+            A, A_scale = ops.scaled_fp8_quant(
+                A, A_scale, use_per_token_if_dynamic=per_act_token)
     else:
         assert not per_act_token
         assert len(block_shape) == 2

@@ -30,6 +30,10 @@ from vllm.model_executor.layers.fused_moe.rocm_aiter_fused_moe import (
     is_rocm_aiter_moe_enabled)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
+from vllm.model_executor.layers.quantization.utils.quant_utils import (
+    GroupShape)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import (
+    QuantFP8)
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.platforms import current_platform
 from vllm.platforms.interface import CpuArchEnum
@@ -764,6 +768,14 @@ class FusedMoE(torch.nn.Module):
                 raise NotImplementedError("EPLB is only supported for FP8 "
                                           "quantization for now.")
 
+        # Instantiate QuantFP8 if FP8 quantization is enabled
+        self.quant_fp8 = None  # default to None
+        if quant_config is not None and quant_config.quant_dtype == torch.float8_e4m3fn:
+            per_act_token = quant_config.per_act_token_quant
+            group_shape = GroupShape.PER_TOKEN if per_act_token else GroupShape.PER_TENSOR
+            static = not per_act_token
+            self.quant_fp8 = QuantFP8(static=static, group_shape=group_shape)
+
         moe_quant_params = {
             "num_experts": self.local_num_experts,
             "hidden_size": hidden_size,
@@ -1379,7 +1391,7 @@ class FusedMoE(torch.nn.Module):
             return self.forward_impl(hidden_states, router_logits)
         else:
             return torch.ops.vllm.moe_forward(hidden_states, router_logits,
-                                              self.layer_name)
+                                              self.layer_name, self.quant_fp8)
 
     def forward_impl_chunked(self, full_hidden_states: torch.Tensor,
                              full_router_logits: torch.Tensor):
@@ -1431,6 +1443,7 @@ class FusedMoE(torch.nn.Module):
                 expert_load_view=self.expert_load_view,
                 logical_to_physical_map=self.logical_to_physical_map,
                 logical_replica_count=self.logical_replica_count,
+                quant_fp8=self.quant_fp8
             )
 
             if not skip_result_store:
@@ -1492,6 +1505,7 @@ class FusedMoE(torch.nn.Module):
             expert_load_view=self.expert_load_view,
             logical_to_physical_map=self.logical_to_physical_map,
             logical_replica_count=self.logical_replica_count,
+            quant_fp8=self.quant_fp8
         )
 
         if do_naive_dispatch_combine:
