@@ -22,6 +22,7 @@ from vllm.model_executor.layers.linear import (LinearBase, LinearMethodBase,
 from vllm.model_executor.layers.quantization import QuantizationMethods
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.model_executor.layers.quantization.kv_cache import BaseKVCacheMethod
 from vllm.model_executor.layers.quantization.utils.fp8_utils import (
     get_col_major_tma_aligned_tensor, requant_weight_ue8m0_inplace)
@@ -35,7 +36,6 @@ from vllm.model_executor.layers.quantization.utils.w8a8_utils import (
     cutlass_fp8_supported, maybe_create_device_identity,
     normalize_e4m3fn_to_e4m3fnuz, per_tensor_dequantize,
     requantize_with_max_scale)
-from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.model_executor.parameter import (BlockQuantScaleParameter,
                                            ModelWeightParameter,
                                            PerTensorScaleParameter)
@@ -884,29 +884,27 @@ class Fp8MoEMethod(FusedMoEMethodBase):
                 allow_deep_gemm=self.allow_deep_gemm,
             )
 
-    def apply(
-        self,
-        layer: torch.nn.Module,
-        x: torch.Tensor,
-        router_logits: torch.Tensor,
-        top_k: int,
-        renormalize: bool,
-        use_grouped_topk: bool = False,
-        topk_group: Optional[int] = None,
-        num_expert_group: Optional[int] = None,
-        global_num_experts: int = -1,
-        expert_map: Optional[torch.Tensor] = None,
-        custom_routing_function: Optional[Callable] = None,
-        scoring_func: str = "softmax",
-        e_score_correction_bias: Optional[torch.Tensor] = None,
-        apply_router_weight_on_input: bool = False,
-        activation: str = "silu",
-        enable_eplb: bool = False,
-        expert_load_view: Optional[torch.Tensor] = None,
-        logical_to_physical_map: Optional[torch.Tensor] = None,
-        logical_replica_count: Optional[torch.Tensor] = None,
-        quant_fp8: Optional[QuantFP8] = None
-    ) -> torch.Tensor:
+    def apply(self,
+              layer: torch.nn.Module,
+              x: torch.Tensor,
+              router_logits: torch.Tensor,
+              top_k: int,
+              renormalize: bool,
+              use_grouped_topk: bool = False,
+              topk_group: Optional[int] = None,
+              num_expert_group: Optional[int] = None,
+              global_num_experts: int = -1,
+              expert_map: Optional[torch.Tensor] = None,
+              custom_routing_function: Optional[Callable] = None,
+              scoring_func: str = "softmax",
+              e_score_correction_bias: Optional[torch.Tensor] = None,
+              apply_router_weight_on_input: bool = False,
+              activation: str = "silu",
+              enable_eplb: bool = False,
+              expert_load_view: Optional[torch.Tensor] = None,
+              logical_to_physical_map: Optional[torch.Tensor] = None,
+              logical_replica_count: Optional[torch.Tensor] = None,
+              quant_fp8: Optional[QuantFP8] = None) -> torch.Tensor:
         if enable_eplb:
             assert expert_load_view is not None
             assert logical_to_physical_map is not None
@@ -981,13 +979,12 @@ class Fp8MoEMethod(FusedMoEMethodBase):
                 apply_router_weight_on_input=apply_router_weight_on_input,
                 expert_map=expert_map,
                 w1_scale=(layer.w13_weight_scale_inv
-                            if self.block_quant else layer.w13_weight_scale),
+                          if self.block_quant else layer.w13_weight_scale),
                 w2_scale=(layer.w2_weight_scale_inv
-                            if self.block_quant else layer.w2_weight_scale),
+                          if self.block_quant else layer.w2_weight_scale),
                 a1_scale=layer.w13_input_scale,
                 a2_scale=layer.w2_input_scale,
-                quant_fp8=quant_fp8
-            )
+                quant_fp8=quant_fp8)
         else:
             return self.fused_experts(
                 hidden_states=x,
@@ -1001,12 +998,11 @@ class Fp8MoEMethod(FusedMoEMethodBase):
                 apply_router_weight_on_input=apply_router_weight_on_input,
                 expert_map=expert_map,
                 w1_scale=(layer.w13_weight_scale_inv
-                            if self.block_quant else layer.w13_weight_scale),
+                          if self.block_quant else layer.w13_weight_scale),
                 w2_scale=(layer.w2_weight_scale_inv
-                            if self.block_quant else layer.w2_weight_scale),
+                          if self.block_quant else layer.w2_weight_scale),
                 a1_scale=layer.w13_input_scale,
-                a2_scale=layer.w2_input_scale
-            )
+                a2_scale=layer.w2_input_scale)
 
 
 class Fp8KVCacheMethod(BaseKVCacheMethod):

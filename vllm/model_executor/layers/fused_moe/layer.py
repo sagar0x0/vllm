@@ -30,9 +30,9 @@ from vllm.model_executor.layers.fused_moe.rocm_aiter_fused_moe import (
     is_rocm_aiter_moe_enabled)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
     GroupShape)
-from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.platforms import current_platform
 from vllm.platforms.interface import CpuArchEnum
@@ -1444,8 +1444,7 @@ class FusedMoE(torch.nn.Module):
                 enable_eplb=self.enable_eplb,
                 expert_load_view=self.expert_load_view,
                 logical_to_physical_map=self.logical_to_physical_map,
-                logical_replica_count=self.logical_replica_count
-            )
+                logical_replica_count=self.logical_replica_count)
 
             if not skip_result_store:
                 full_final_hidden_states[chunk_start:chunk_end, :].copy_(
