@@ -208,26 +208,28 @@ class FusedMoEMethodBase(QuantizeMethodBase):
             "implementation based on the prepare_finalize")
 
     @abstractmethod
-    def apply(self,
-              layer: torch.nn.Module,
-              x: torch.Tensor,
-              router_logits: torch.Tensor,
-              top_k: int,
-              renormalize: bool,
-              use_grouped_topk: bool = False,
-              topk_group: Optional[int] = None,
-              num_expert_group: Optional[int] = None,
-              global_num_experts: int = -1,
-              expert_map: Optional[torch.Tensor] = None,
-              custom_routing_function: Optional[Callable] = None,
-              scoring_func: str = "softmax",
-              e_score_correction_bias: Optional[torch.Tensor] = None,
-              apply_router_weight_on_input: bool = False,
-              activation: str = "silu",
-              enable_eplb: bool = False,
-              expert_load_view: Optional[torch.Tensor] = None,
-              logical_to_physical_map: Optional[torch.Tensor] = None,
-              logical_replica_count: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def apply(
+            self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            router_logits: torch.Tensor,
+            top_k: int,
+            renormalize: bool,
+            use_grouped_topk: bool = False,
+            topk_group: Optional[int] = None,
+            num_expert_group: Optional[int] = None,
+            global_num_experts: int = -1,
+            expert_map: Optional[torch.Tensor] = None,
+            custom_routing_function: Optional[Callable] = None,
+            scoring_func: str = "softmax",
+            e_score_correction_bias: Optional[torch.Tensor] = None,
+            apply_router_weight_on_input: bool = False,
+            activation: str = "silu",
+            enable_eplb: bool = False,
+            expert_load_view: Optional[torch.Tensor] = None,
+            logical_to_physical_map: Optional[torch.Tensor] = None,
+            logical_replica_count: Optional[torch.Tensor] = None    
+    ) -> torch.Tensor:
         raise NotImplementedError
 
 

@@ -1008,7 +1008,6 @@ class Fp8MoEMethod(FusedMoEMethodBase):
             )
 
 
-
 class Fp8KVCacheMethod(BaseKVCacheMethod):
     """
     Supports loading kv-cache scaling factors from FP8 checkpoints.
