@@ -230,6 +230,7 @@ class FusedMoEMethodBase(QuantizeMethodBase):
         expert_load_view: Optional[torch.Tensor] = None,
         logical_to_physical_map: Optional[torch.Tensor] = None,
         logical_replica_count: Optional[torch.Tensor] = None,
+        quant_fp8: Optional[QuantFP8] = None
     ) -> torch.Tensor:
         raise NotImplementedError
 
@@ -770,9 +771,12 @@ class FusedMoE(torch.nn.Module):
 
         # Instantiate QuantFP8 if FP8 quantization is enabled
         self.quant_fp8 = None  # default to None
-        if quant_config is not None and quant_config.quant_dtype == torch.float8_e4m3fn:
-            per_act_token = quant_config.per_act_token_quant
-            group_shape = GroupShape.PER_TOKEN if per_act_token else GroupShape.PER_TENSOR
+        if self.moe_config.quant_dtype == torch.float8_e4m3fn:
+            per_act_token = self.moe_config.per_act_token_quant
+            if per_act_token:
+                group_shape = GroupShape.PER_TOKEN
+            else:
+                group_shape = GroupShape.PER_TENSOR
             static = not per_act_token
             self.quant_fp8 = QuantFP8(static=static, group_shape=group_shape)
 
