@@ -32,8 +32,7 @@ from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
     GroupShape)
-from vllm.model_executor.layers.quantization.input_quant_fp8 import (
-    QuantFP8)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.platforms import current_platform
 from vllm.platforms.interface import CpuArchEnum
@@ -230,7 +229,6 @@ class FusedMoEMethodBase(QuantizeMethodBase):
         expert_load_view: Optional[torch.Tensor] = None,
         logical_to_physical_map: Optional[torch.Tensor] = None,
         logical_replica_count: Optional[torch.Tensor] = None,
-        quant_fp8: Optional[QuantFP8] = None
     ) -> torch.Tensor:
         raise NotImplementedError
 
@@ -1446,8 +1444,7 @@ class FusedMoE(torch.nn.Module):
                 enable_eplb=self.enable_eplb,
                 expert_load_view=self.expert_load_view,
                 logical_to_physical_map=self.logical_to_physical_map,
-                logical_replica_count=self.logical_replica_count,
-                quant_fp8=self.quant_fp8
+                logical_replica_count=self.logical_replica_count
             )
 
             if not skip_result_store:
@@ -1509,7 +1506,6 @@ class FusedMoE(torch.nn.Module):
             expert_load_view=self.expert_load_view,
             logical_to_physical_map=self.logical_to_physical_map,
             logical_replica_count=self.logical_replica_count,
-            quant_fp8=self.quant_fp8
         )
 
         if do_naive_dispatch_combine:

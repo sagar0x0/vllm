@@ -31,8 +31,7 @@ from vllm.model_executor.layers.fused_moe.utils import (
     _resize_cache, moe_kernel_quantize_input)
 from vllm.model_executor.layers.quantization.utils.mxfp4_utils import (
     dequant_mxfp4)
-from vllm.model_executor.layers.quantization.input_quant_fp8 import (
-    QuantFP8)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.platforms import current_platform
 from vllm.triton_utils import tl, triton
 from vllm.utils import direct_register_custom_op
