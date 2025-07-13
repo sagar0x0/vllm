@@ -30,6 +30,9 @@ from vllm.model_executor.layers.fused_moe.rocm_aiter_fused_moe import (
     is_rocm_aiter_moe_enabled)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
+from vllm.model_executor.layers.quantization.utils.quant_utils import (
+    GroupShape)
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.platforms import current_platform
 from vllm.platforms.interface import CpuArchEnum
@@ -206,26 +209,26 @@ class FusedMoEMethodBase(QuantizeMethodBase):
 
     @abstractmethod
     def apply(
-        self,
-        layer: torch.nn.Module,
-        x: torch.Tensor,
-        router_logits: torch.Tensor,
-        top_k: int,
-        renormalize: bool,
-        use_grouped_topk: bool = False,
-        topk_group: Optional[int] = None,
-        num_expert_group: Optional[int] = None,
-        global_num_experts: int = -1,
-        expert_map: Optional[torch.Tensor] = None,
-        custom_routing_function: Optional[Callable] = None,
-        scoring_func: str = "softmax",
-        e_score_correction_bias: Optional[torch.Tensor] = None,
-        apply_router_weight_on_input: bool = False,
-        activation: str = "silu",
-        enable_eplb: bool = False,
-        expert_load_view: Optional[torch.Tensor] = None,
-        logical_to_physical_map: Optional[torch.Tensor] = None,
-        logical_replica_count: Optional[torch.Tensor] = None,
+            self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            router_logits: torch.Tensor,
+            top_k: int,
+            renormalize: bool,
+            use_grouped_topk: bool = False,
+            topk_group: Optional[int] = None,
+            num_expert_group: Optional[int] = None,
+            global_num_experts: int = -1,
+            expert_map: Optional[torch.Tensor] = None,
+            custom_routing_function: Optional[Callable] = None,
+            scoring_func: str = "softmax",
+            e_score_correction_bias: Optional[torch.Tensor] = None,
+            apply_router_weight_on_input: bool = False,
+            activation: str = "silu",
+            enable_eplb: bool = False,
+            expert_load_view: Optional[torch.Tensor] = None,
+            logical_to_physical_map: Optional[torch.Tensor] = None,
+            logical_replica_count: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         raise NotImplementedError
 
@@ -763,6 +766,17 @@ class FusedMoE(torch.nn.Module):
                 # please refer to the implementation in `Fp8MoEMethod`.
                 raise NotImplementedError("EPLB is only supported for FP8 "
                                           "quantization for now.")
+
+        # Instantiate QuantFP8 if FP8 quantization is enabled
+        self.quant_fp8 = None  # default to None
+        if self.moe_config.quant_dtype == torch.float8_e4m3fn:
+            per_act_token = self.moe_config.per_act_token_quant
+            if per_act_token:
+                group_shape = GroupShape.PER_TOKEN
+            else:
+                group_shape = GroupShape.PER_TENSOR
+            static = not per_act_token
+            self.quant_fp8 = QuantFP8(static=static, group_shape=group_shape)
 
         moe_quant_params = {
             "num_experts": self.local_num_experts,
@@ -1379,7 +1393,7 @@ class FusedMoE(torch.nn.Module):
             return self.forward_impl(hidden_states, router_logits)
         else:
             return torch.ops.vllm.moe_forward(hidden_states, router_logits,
-                                              self.layer_name)
+                                              self.layer_name, self.quant_fp8)
 
     def forward_impl_chunked(self, full_hidden_states: torch.Tensor,
                              full_router_logits: torch.Tensor):

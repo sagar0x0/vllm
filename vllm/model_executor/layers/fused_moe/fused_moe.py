@@ -29,6 +29,7 @@ from vllm.model_executor.layers.fused_moe.topk_weight_and_reduce import (
     TopKWeightAndReduceDelegate)
 from vllm.model_executor.layers.fused_moe.utils import (
     _resize_cache, moe_kernel_quantize_input)
+from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
 from vllm.model_executor.layers.quantization.utils.mxfp4_utils import (
     dequant_mxfp4)
 from vllm.platforms import current_platform
@@ -1144,32 +1145,32 @@ def dispatch_fused_experts_func(inplace: bool) -> Callable[..., torch.Tensor]:
 
 # TODO (bnell): replace this with modular op.  Can get rid of inplace/outplace
 # torch ops.
-def fused_experts(
-        hidden_states: torch.Tensor,
-        w1: torch.Tensor,
-        w2: torch.Tensor,
-        topk_weights: torch.Tensor,
-        topk_ids: torch.Tensor,
-        inplace: bool = False,
-        activation: str = "silu",
-        apply_router_weight_on_input: bool = False,
-        use_fp8_w8a8: bool = False,
-        use_int8_w8a8: bool = False,
-        use_int8_w8a16: bool = False,
-        use_int4_w4a16: bool = False,
-        use_mxfp4_w4a4: bool = False,
-        per_channel_quant: bool = False,
-        global_num_experts: int = -1,
-        expert_map: Optional[torch.Tensor] = None,
-        w1_scale: Optional[torch.Tensor] = None,
-        w2_scale: Optional[torch.Tensor] = None,
-        w1_zp: Optional[torch.Tensor] = None,
-        w2_zp: Optional[torch.Tensor] = None,
-        a1_scale: Optional[torch.Tensor] = None,
-        a2_scale: Optional[torch.Tensor] = None,
-        block_shape: Optional[list[int]] = None,
-        allow_deep_gemm: bool = False,
-        allow_cutlass_block_scaled_grouped_gemm: bool = False) -> torch.Tensor:
+def fused_experts(hidden_states: torch.Tensor,
+                  w1: torch.Tensor,
+                  w2: torch.Tensor,
+                  topk_weights: torch.Tensor,
+                  topk_ids: torch.Tensor,
+                  inplace: bool = False,
+                  activation: str = "silu",
+                  apply_router_weight_on_input: bool = False,
+                  use_fp8_w8a8: bool = False,
+                  use_int8_w8a8: bool = False,
+                  use_int8_w8a16: bool = False,
+                  use_int4_w4a16: bool = False,
+                  use_mxfp4_w4a4: bool = False,
+                  per_channel_quant: bool = False,
+                  global_num_experts: int = -1,
+                  expert_map: Optional[torch.Tensor] = None,
+                  w1_scale: Optional[torch.Tensor] = None,
+                  w2_scale: Optional[torch.Tensor] = None,
+                  w1_zp: Optional[torch.Tensor] = None,
+                  w2_zp: Optional[torch.Tensor] = None,
+                  a1_scale: Optional[torch.Tensor] = None,
+                  a2_scale: Optional[torch.Tensor] = None,
+                  block_shape: Optional[list[int]] = None,
+                  allow_deep_gemm: bool = False,
+                  allow_cutlass_block_scaled_grouped_gemm: bool = False,
+                  quant_fp8: Optional[QuantFP8] = None) -> torch.Tensor:
     # For now, disable DeepGemm for small N (<= 512) until better
     # permute/unpermute ops are available.
     # However, on B200, we use DeepGemm for all cases becuase they only support
@@ -1209,7 +1210,8 @@ def fused_experts(
             w1_scale=w1_scale,
             w2_scale=w2_scale,
             topk_weights=topk_weights,
-            topk_ids=topk_ids)
+            topk_ids=topk_ids,
+            quant_fp8=quant_fp8)
     else:
         return dispatch_fused_experts_func(inplace)(
             hidden_states=hidden_states,
